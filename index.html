@@ -914,9 +914,11 @@ function initApp(){
   populateCentreActif();
   fillSelect('u-centre',DB.centres.map(c=>({v:c.designation,l:c.designation})));
   updatePermPreview();
-  renderDashboard();
   renderOnlineUsers();
   logActivity('Connexion',`${currentUser.name} s'est connecté`,`Centre : ${currentUser.centre}`);
+  // Charger les données GitHub après login
+  if(GH.token){ ghLoadData().then(()=>renderDashboard()); }
+  else { showTokenModal(); renderDashboard(); }
 }
 
 function applyPermissions(){
@@ -1990,8 +1992,7 @@ window.confirmDelete = function(){
   ghSaveData();
 };
 
-// Charger les données au démarrage si token présent
-window.addEventListener('load', ()=>{ if(GH.token) ghLoadData(); else showTokenModal(); });
+// Le chargement se fait après le login (voir initApp)
 </script>
 </body>
 </html>
