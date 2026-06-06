@@ -1887,6 +1887,111 @@ function populateCentreActif(){
   sel.innerHTML=DB.centres.map(c=>`<option value="${c.designation}" ${c.designation===current?'selected':''}>${c.designation}</option>`).join('');
 }
 function onCentreChange(){if(document.getElementById('page-stock-centre').classList.contains('active'))renderStockCentre()}
+
+// ————————————————————————————————————
+//  GITHUB DATABASE
+// ————————————————————————————————————
+const GH = {
+  owner: 'ngomayohan18-creator',
+  repo:  'Pedago-',
+  file:  'data.json',
+  branch:'main',
+  get token(){ return localStorage.getItem('gh_token') || '' },
+  set token(v){ localStorage.setItem('gh_token', v) },
+  sha: null
+};
+
+async function ghLoadData(){
+  if(!GH.token){ showTokenModal(); return; }
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.file}?ref=${GH.branch}`,
+      {headers:{'Authorization':'Bearer '+GH.token,'Accept':'application/vnd.github+json'}});
+    if(r.status===401){GH.token='';showTokenModal();return;}
+    const json = await r.json();
+    GH.sha = json.sha;
+    const data = JSON.parse(atob(json.content.replace(/\n/g,'')));
+    Object.assign(DB, data);
+    toast('✅ Données chargées depuis GitHub');
+  } catch(e){ toast('⚠️ Erreur chargement données','warn'); }
+}
+
+let _saveTimeout = null;
+async function ghSaveData(){
+  if(!GH.token) return;
+  clearTimeout(_saveTimeout);
+  _saveTimeout = setTimeout(async ()=>{
+    try {
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(DB, null, 2))));
+      const body = {message:`Update data — ${new Date().toLocaleString('fr-FR')}`, content, branch: GH.branch};
+      if(GH.sha) body.sha = GH.sha;
+      const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.file}`,
+        {method:'PUT', headers:{'Authorization':'Bearer '+GH.token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const json = await r.json();
+      if(json.content) { GH.sha = json.content.sha; toast('💾 Sauvegardé sur GitHub'); }
+      else toast('⚠️ Erreur sauvegarde','warn');
+    } catch(e){ toast('⚠️ Erreur sauvegarde','warn'); }
+  }, 1500);
+}
+
+function showTokenModal(){
+  const existing = document.getElementById('modalGHToken');
+  if(existing) existing.remove();
+  const m = document.createElement('div');
+  m.id = 'modalGHToken';
+  m.className = 'modal-overlay open';
+  m.innerHTML = `
+    <div class="modal confirm-modal" style="width:460px">
+      <div class="modal-header">
+        <div class="modal-title">🔑 Connexion GitHub</div>
+      </div>
+      <div class="confirm-body" style="text-align:left;padding:24px">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7">
+          Entrez votre <strong>token GitHub</strong> pour synchroniser les données.<br>
+          <span style="font-size:11px;color:var(--text3)">Créez un token sur github.com → Settings → Developer settings → Personal access tokens → Fine-grained → permissions : Contents (Read & Write)</span>
+        </p>
+        <input type="password" id="ghTokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;margin-bottom:16px">
+        <div class="form-actions" style="margin-top:0">
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="applyGHToken()">✅ Connecter</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('ghTokenInput')?.focus(), 100);
+}
+
+function applyGHToken(){
+  const t = document.getElementById('ghTokenInput')?.value?.trim();
+  if(!t){ toast('⚠️ Token requis','warn'); return; }
+  GH.token = t;
+  document.getElementById('modalGHToken')?.remove();
+  ghLoadData().then(()=>{ renderDashboard(); });
+}
+
+// Patch saveEntree/saveSortie/saveTransfert/saveArticle/saveCentre/saveUser pour auto-save
+const _origSE=saveEntree, _origSS=saveSortie, _origST=saveTransfert, _origSA=saveArticle, _origSC=saveCentre, _origSU=saveUser;
+window.saveEntree    = function(){ _origSE();    ghSaveData(); };
+window.saveSortie    = function(){ _origSS();    ghSaveData(); };
+window.saveTransfert = function(){ _origST();    ghSaveData(); };
+window.saveArticle   = function(){ _origSA();    ghSaveData(); };
+window.saveCentre    = function(){ _origSC();    ghSaveData(); };
+window.saveUser      = function(){ _origSU();    ghSaveData(); };
+window.confirmDelete = function(){
+  const{type,id}=_deleteTarget||{};
+  if(!type)return;
+  const _orig=confirmDelete;
+  if(type==='entree'){DB.entrees=DB.entrees.filter(e=>e.id!==id);}
+  else if(type==='sortie'){DB.sorties=DB.sorties.filter(e=>e.id!==id);}
+  else if(type==='transfert'){DB.transferts=DB.transferts.filter(e=>e.id!==id);}
+  else if(type==='article'){DB.articles=DB.articles.filter(a=>a.ref!==id);}
+  else if(type==='centre'){DB.centres=DB.centres.filter(c=>c.id!==id);populateCentreActif();}
+  else if(type==='user'){DB.users=DB.users.filter(u=>u.email!==id);}
+  closeModal('modalConfirm');_deleteTarget=null;
+  renderDashboard();toast('🗑 Supprimé','danger');
+  ghSaveData();
+};
+
+// Charger les données au démarrage si token présent
+window.addEventListener('load', ()=>{ if(GH.token) ghLoadData(); else showTokenModal(); });
 </script>
 </body>
 </html>
