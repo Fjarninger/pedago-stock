@@ -1980,15 +1980,15 @@ window.saveUser      = function(){ _origSU();    ghSaveData(); };
 window.confirmDelete = function(){
   const{type,id}=_deleteTarget||{};
   if(!type)return;
-  const _orig=confirmDelete;
-  if(type==='entree'){DB.entrees=DB.entrees.filter(e=>e.id!==id);}
-  else if(type==='sortie'){DB.sorties=DB.sorties.filter(e=>e.id!==id);}
-  else if(type==='transfert'){DB.transferts=DB.transferts.filter(e=>e.id!==id);}
-  else if(type==='article'){DB.articles=DB.articles.filter(a=>a.ref!==id);}
-  else if(type==='centre'){DB.centres=DB.centres.filter(c=>c.id!==id);populateCentreActif();}
-  else if(type==='user'){DB.users=DB.users.filter(u=>u.email!==id);}
+  let msg='';
+  if(type==='entree'){DB.entrees=DB.entrees.filter(e=>e.id!==id);msg='🗑 Entrée supprimée';logActivity('Suppression',`Entrée N°${id} supprimée`,'Journal entrées');renderEntrees();}
+  else if(type==='sortie'){DB.sorties=DB.sorties.filter(e=>e.id!==id);msg='🗑 Sortie supprimée';logActivity('Suppression',`Sortie N°${id} supprimée`,'Journal sorties');renderSorties();}
+  else if(type==='transfert'){DB.transferts=DB.transferts.filter(e=>e.id!==id);msg='🗑 Transfert supprimé';logActivity('Suppression',`Transfert N°${id} supprimé`,'Journal transferts');renderTransferts();}
+  else if(type==='article'){DB.articles=DB.articles.filter(a=>a.ref!==id);msg='🗑 Article supprimé';logActivity('Suppression',`Article ${id} supprimé`,'Catalogue');renderArticles();}
+  else if(type==='centre'){DB.centres=DB.centres.filter(c=>c.id!==id);populateCentreActif();msg='🗑 Centre supprimé';logActivity('Suppression',`Centre ID${id} supprimé`,'Liste centres');renderCentres();}
+  else if(type==='user'){DB.users=DB.users.filter(u=>u.email!==id);msg='🗑 Utilisateur supprimé';logActivity('Suppression',`Utilisateur ${id} supprimé`,'Gestion utilisateurs');renderUsers();}
   closeModal('modalConfirm');_deleteTarget=null;
-  renderDashboard();toast('🗑 Supprimé','danger');
+  renderDashboard();toast(msg,'danger');
   ghSaveData();
 };
 
